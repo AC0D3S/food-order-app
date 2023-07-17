@@ -1,11 +1,15 @@
-import React, { useContext } from "react";
+import React, { useContext, useState } from "react";
 
 import "./Cart.css";
 import Modal from "../UI/Modal";
 import CartContext from "../../store/cart-context";
 import CartItem from "./CartItem";
+import Checkout from "./Checkout";
 
 const Cart = (props) => {
+  const [isCheckout, setIsCheckout] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [didSubmit, setDidSumbit] = useState(false);
   const cartCtx = useContext(CartContext);
 
   const totalAmount = `$${cartCtx.totalAmount.toFixed(2)}`;
@@ -17,7 +21,28 @@ const Cart = (props) => {
   };
 
   const cartItemAddHandler = (item) => {
-    cartCtx.addItem({...item, amount: 1})
+    cartCtx.addItem({ ...item, amount: 1 });
+  };
+
+  const orderHandler = () => {
+    setIsCheckout(true);
+  };
+
+  const submitOrderHandler = async (userData) => {
+    setIsSubmitting(true);
+    await fetch(
+      "https://food-order-app-46cfb-default-rtdb.firebaseio.com/orders.json",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          user: userData,
+          orderedItems: cartCtx.items,
+        }),
+      }
+    );
+    setIsSubmitting(false);
+    setDidSumbit(true);
+    cartCtx.clearCart();
   };
 
   const cartItems = (
@@ -35,20 +60,55 @@ const Cart = (props) => {
     </ul>
   );
 
+  const modalActions = (
+    <div className="cart__actions">
+      <button className="cart__button--alt" onClick={props.onHideCart}>
+        Close
+      </button>
+      {hasItems && (
+        <button className="cart__button" onClick={orderHandler}>
+          Order
+        </button>
+      )}
+    </div>
+  );
+
+  const cartModalContent = (
+    <>
+      {cartItems}
+      <div className="total">
+        <span>Total Amount</span>
+        <span>{totalAmount}</span>
+      </div>
+      {isCheckout && (
+        <Checkout
+          onConfirm={submitOrderHandler}
+          onHideCart={props.onHideCart}
+        />
+      )}
+      {!isCheckout && modalActions}
+    </>
+  );
+
+  const isSubmittingModalContent = <p>Sending Order Data...</p>;
+
+  const didSubmitModalContent = (
+    <>
+      <p>Hooray, Your Order Was Sent!</p>
+      <div className="cart__actions">
+        <button className="cart__button--alt" onClick={props.onHideCart}>
+          Close
+        </button>
+      </div>
+    </>
+  );
+
   return (
     <>
       <Modal onHideCart={props.onHideCart}>
-        {cartItems}
-        <div className="total">
-          <span>Total Amount</span>
-          <span>{totalAmount}</span>
-        </div>
-        <div className="cart__actions">
-          <button className="cart__button--alt" onClick={props.onHideCart}>
-            Close
-          </button>
-          {hasItems && <button className="cart__button">Order</button>}
-        </div>
+        {!isSubmitting && !didSubmit && cartModalContent}
+        {isSubmitting && isSubmittingModalContent}
+        {!isSubmitting && didSubmit && didSubmitModalContent}
       </Modal>
     </>
   );
